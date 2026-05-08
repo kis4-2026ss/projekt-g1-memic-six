@@ -1,1 +1,8 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/kz4Hl53G)
+# WebLegacy AI: PHP-to-C# Modernization Engine
+
+**Ein Projekt von Aldin Memic & Amadin Six für KIS4 (AI-Assisted Software Engineering)**
+
+Dieses Tool nutzt modernste KI-Methoden, um veraltete PHP-Backends automatisiert in moderne ASP.NET Core Architekturen zu transformieren. Dabei steht nicht die bloße Syntax-Übersetzung im Vordergrund, sondern die Wiederherstellung und Modernisierung der Software-Architektur.
+
+---
+👉 **[Zum detaillierten Projekt-Proposal](./Proposal.md)**
