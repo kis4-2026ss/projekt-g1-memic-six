@@ -63,7 +63,11 @@ def main():
     engine = MigrationEngine()
     result = engine.run_migration(php_codes)
 
-    run_output_dir = args.output_dir
+    if args.output_dir == "./output":
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
+    else:
+        run_output_dir = args.output_dir
 
     print(f"Generating C# project structure in {run_output_dir}...")
     generator = CSharpProjectGenerator(output_dir=run_output_dir)

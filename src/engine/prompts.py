@@ -31,12 +31,14 @@ Here is the extracted business logic:
 Please generate the equivalent C# code. Return the code in a JSON structure containing the following keys (if applicable):
 - "controller_code": The ASP.NET Core Controller class.
 - "service_code": The Service class containing the business logic.
-- "repository_code": The Repository interface and class for data access (using Entity Framework Core patterns).
+- "repository_code": The Repository interface and class for data access (using Entity Framework Core patterns, injecting the generated DbContext named AppDbContext).
+- "context_code": The ASP.NET Core AppDbContext class inheriting from DbContext, mapping all required DbSets.
 - "models_code": Any required DTOs or Entity models.
 
 Ensure the code follows these guidelines:
-- Use Dependency Injection.
+- Use Dependency Injection (inject AppDbContext into your repositories).
 - Use async/await patterns for I/O operations.
 - Avoid raw SQL; assume Entity Framework Core will be used.
 - Ensure the code is syntactically valid C#.
+- Do not define any DbContext classes inside the repository_code file; assume it is defined in context_code and imported from the Data namespace.
 """
