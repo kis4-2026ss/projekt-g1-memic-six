@@ -41,4 +41,6 @@ Ensure the code follows these guidelines:
 - Avoid raw SQL; assume Entity Framework Core will be used.
 - Ensure the code is syntactically valid C#.
 - Do not define any DbContext classes inside the repository_code file; assume it is defined in context_code and imported from the Data namespace.
+- **IMPORTANT**: If database transactions are used (e.g., `IDbContextTransaction`), ALWAYS include `using Microsoft.EntityFrameworkCore.Storage;` at the top of the file.
+- **IMPORTANT**: Support C# Nullable Reference Types. If a database search or retrieval can return null (like `FindAsync` or `FirstOrDefaultAsync`), declare the return type as nullable (e.g., `Product?`) to avoid CS8603 warnings.
 """
