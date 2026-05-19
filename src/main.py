@@ -7,7 +7,7 @@ from src.generator.csharp_generator import CSharpProjectGenerator
 
 def main():
     parser = argparse.ArgumentParser(description="WebLegacy AI - PHP to C# Migration Tool")
-    parser.add_argument("--php-files", type=str, nargs='+', help="Paths to one or more legacy PHP files to migrate")
+    parser.add_argument("--php-files", type=str, nargs='+', help="Paths to one or more legacy PHP files or directories to migrate")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save generated C# code")
     
     args = parser.parse_args()
@@ -39,12 +39,26 @@ def main():
         return
 
     php_codes = {}
-    for file_path in args.php_files:
-        if not os.path.exists(file_path):
-            print(f"Error: File not found: {file_path}")
+    for path in args.php_files:
+        if not os.path.exists(path):
+            print(f"Error: Path not found: {path}")
             return
-        with open(file_path, 'r') as f:
-            php_codes[file_path] = f.read()
+            
+        if os.path.isfile(path):
+            if path.endswith('.php'):
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    php_codes[path] = f.read()
+        elif os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for file in files:
+                    if file.endswith('.php'):
+                        full_path = os.path.join(root, file)
+                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            php_codes[full_path] = f.read()
+                            
+    if not php_codes:
+        print("Error: No PHP files found in the provided paths.")
+        return
 
     engine = MigrationEngine()
     result = engine.run_migration(php_codes)
