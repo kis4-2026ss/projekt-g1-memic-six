@@ -1,7 +1,9 @@
 import argparse
 import json
 import os
+import datetime
 from src.engine.migration_engine import MigrationEngine
+from src.generator.csharp_generator import CSharpProjectGenerator
 
 def main():
     parser = argparse.ArgumentParser(description="WebLegacy AI - PHP to C# Migration Tool")
@@ -47,24 +49,14 @@ def main():
     engine = MigrationEngine()
     result = engine.run_migration(php_codes)
 
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
 
-    # Save the analysis result
-    with open(os.path.join(args.output_dir, 'analysis.json'), 'w') as f:
-        json.dump(result.get("analysis", {}), f, indent=2)
+    print(f"Generating C# project structure in {run_output_dir}...")
+    generator = CSharpProjectGenerator(output_dir=run_output_dir)
+    generator.write_generated_code(result)
 
-    # Save generated C# code pieces
-    gen_result = result.get("generation", {})
-    if isinstance(gen_result, dict):
-        for key, code in gen_result.items():
-            if key.endswith('_code') and code:
-                filename = f"{key.replace('_code', '')}.cs"
-                with open(os.path.join(args.output_dir, filename), 'w') as f:
-                    f.write(code)
-                print(f"Saved generated C# file: {filename}")
-
-    print(f"Migration complete. Results saved in {args.output_dir}")
+    print(f"Migration complete. Results saved in {run_output_dir}")
 
 if __name__ == "__main__":
     main()
