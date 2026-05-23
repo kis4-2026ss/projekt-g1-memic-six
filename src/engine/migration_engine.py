@@ -25,12 +25,20 @@ class MigrationEngine:
             print("Failed to parse JSON from Gemini analysis response.")
             return {"error": "Invalid JSON response", "raw_response": response_text}
 
-    def generate_csharp_code(self, business_logic: dict) -> dict:
+    def generate_csharp_code(self, business_logic: dict, sql_schema: str = None) -> dict:
         """
         Step 2 & 3: Map to C# and generate code.
         """
+        if sql_schema:
+            database_schema_context = f"Here is the target database SQL schema:\n```sql\n{sql_schema}\n```\n"
+        else:
+            database_schema_context = ""
+
         business_logic_str = json.dumps(business_logic, indent=2)
-        prompt = MigrationPrompts.CSHARP_GENERATION_PROMPT.format(business_logic_json=business_logic_str)
+        prompt = MigrationPrompts.CSHARP_GENERATION_PROMPT.format(
+            database_schema_context=database_schema_context,
+            business_logic_json=business_logic_str
+        )
         response_text = self.gemini_client.generate_content(prompt)
         
         try:
@@ -40,9 +48,9 @@ class MigrationEngine:
             print("Failed to parse JSON from Gemini generation response.")
             return {"error": "Invalid JSON response", "raw_response": response_text}
 
-    def run_migration(self, php_codes: dict) -> dict:
+    def run_migration(self, php_codes: dict, sql_schema: str = None) -> dict:
         """
-        Executes the full migration pipeline for given PHP files.
+        Executes the full migration pipeline for given PHP files and optional SQL schema.
         """
         print("Starting analysis phase...")
         analysis_result = self.analyze_php_code(php_codes)
@@ -52,9 +60,10 @@ class MigrationEngine:
             return {"analysis": analysis_result, "generation": None}
             
         print("Starting generation phase...")
-        generation_result = self.generate_csharp_code(analysis_result)
+        generation_result = self.generate_csharp_code(analysis_result, sql_schema)
         
         return {
             "analysis": analysis_result,
             "generation": generation_result
         }
+

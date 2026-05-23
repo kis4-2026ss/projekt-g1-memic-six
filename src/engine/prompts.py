@@ -25,6 +25,8 @@ You are an expert C# ASP.NET Core developer.
 Your task is to generate modern, clean, and well-structured C# code based on the extracted business intent of legacy PHP code.
 The target architecture uses the Controller-Service-Repository Pattern.
 
+{database_schema_context}
+
 Here is the extracted business logic:
 {business_logic_json}
 
@@ -39,6 +41,8 @@ Ensure the code follows these guidelines:
 - Use Dependency Injection (inject AppDbContext into your repositories).
 - Use async/await patterns for I/O operations.
 - Avoid raw SQL; assume Entity Framework Core will be used.
+- Map Entity models and DbContext DbSets precisely to the tables, columns, constraints, and relationships specified in the target database SQL schema (if provided).
 - Ensure the code is syntactically valid C#.
 - Do not define any DbContext classes inside the repository_code file; assume it is defined in context_code and imported from the Data namespace.
 """
+

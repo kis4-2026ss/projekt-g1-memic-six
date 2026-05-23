@@ -8,6 +8,7 @@ from src.generator.csharp_generator import CSharpProjectGenerator
 def main():
     parser = argparse.ArgumentParser(description="WebLegacy AI - PHP to C# Migration Tool")
     parser.add_argument("--php-files", type=str, nargs='+', help="Paths to one or more legacy PHP files or directories to migrate")
+    parser.add_argument("--schema-sql", type=str, default=None, help="Path to database SQL schema file")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save generated C# code")
     
     args = parser.parse_args()
@@ -38,6 +39,15 @@ def main():
         print(json.dumps(result, indent=2))
         return
 
+    sql_schema = None
+    if args.schema_sql:
+        if os.path.exists(args.schema_sql) and os.path.isfile(args.schema_sql):
+            with open(args.schema_sql, 'r', encoding='utf-8', errors='ignore') as f:
+                sql_schema = f.read()
+            print(f"Loaded target database schema from: {args.schema_sql}")
+        else:
+            print(f"Warning: SQL schema file not found or invalid: {args.schema_sql}")
+
     php_codes = {}
     for path in args.php_files:
         if not os.path.exists(path):
@@ -61,9 +71,10 @@ def main():
         return
 
     engine = MigrationEngine()
-    result = engine.run_migration(php_codes)
+    result = engine.run_migration(php_codes, sql_schema=sql_schema)
 
     if args.output_dir == "./output":
+
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
     else:
