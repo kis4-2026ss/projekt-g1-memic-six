@@ -21,28 +21,29 @@ PHP Code:
 """
 
     CSHARP_GENERATION_PROMPT = """
-You are an expert C# ASP.NET Core developer.
-Your task is to generate modern, clean, and well-structured C# code based on the extracted business intent of legacy PHP code.
-The target architecture uses the Controller-Service-Repository Pattern.
+You are an expert C# ASP.NET Core 8 developer and software architect.
+Your task is to migrate the extracted business intent from legacy PHP code into a highly robust, modern, and production-ready ASP.NET Core Web API architecture.
+The target architecture strictly adheres to the Controller-Service-Repository Pattern, Dependency Injection, and Entity Framework Core 8.
 
 {database_schema_context}
 
 Here is the extracted business logic:
 {business_logic_json}
 
-Please generate the equivalent C# code. Return the code in a JSON structure containing the following keys (if applicable):
-- "controller_code": The ASP.NET Core Controller class.
-- "service_code": The Service class containing the business logic.
-- "repository_code": The Repository interface and class for data access (using Entity Framework Core patterns, injecting the generated DbContext named AppDbContext).
-- "context_code": The ASP.NET Core AppDbContext class inheriting from DbContext, mapping all required DbSets.
-- "models_code": Any required DTOs or Entity models.
+Please generate the equivalent C# code. Return ONLY a valid JSON object containing the following keys (if applicable):
+- "models_code": All required Domain Entities and Data Transfer Objects (DTOs). Use data annotations (e.g., [Required], [Key]). Place in the `GeneratedProject.Models` namespace.
+- "context_code": The `AppDbContext` class inheriting from `DbContext`, containing `DbSet<T>` for all entities. Place in the `GeneratedProject.Data` namespace. Include `using GeneratedProject.Models;`.
+- "repository_code": The Repository interfaces (e.g., `IUserRepository`) and their concrete implementations. Inject `AppDbContext` via constructor. Place in `GeneratedProject.Repositories`. Include `using GeneratedProject.Data;` and `using GeneratedProject.Models;`.
+- "service_code": The Service interfaces and implementations containing the core business logic. Inject repositories here. Do not access the `AppDbContext` directly from services. Place in `GeneratedProject.Services`. Include `using GeneratedProject.Repositories;` and `using GeneratedProject.Models;`.
+- "controller_code": ASP.NET Core API Controllers inheriting from `ControllerBase`. Use `[ApiController]` and route attributes. Return `ActionResult<T>`. Inject services. Place in `GeneratedProject.Controllers`. Include `using GeneratedProject.Services;` and `using GeneratedProject.Models;`.
 
-Ensure the code follows these guidelines:
-- Use Dependency Injection (inject AppDbContext into your repositories).
-- Use async/await patterns for I/O operations.
-- Avoid raw SQL; assume Entity Framework Core will be used.
-- Map Entity models and DbContext DbSets precisely to the tables, columns, constraints, and relationships specified in the target database SQL schema (if provided).
-- Ensure the code is syntactically valid C#.
-- Do not define any DbContext classes inside the repository_code file; assume it is defined in context_code and imported from the Data namespace.
+STRICT GUIDELINES FOR QUALITY AND COMPILATION:
+1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`).
+2. **EF Core Transactions**: If you use transactions (e.g., `BeginTransactionAsync()`), you MUST include `using Microsoft.EntityFrameworkCore.Storage;` to avoid CS0246 errors on `IDbContextTransaction`.
+3. **Nullable Reference Types**: C# 8 Nullable reference types are ENABLED. If a method like `FirstOrDefaultAsync` or `FindAsync` can return null, the return type MUST be nullable (e.g., `Task<User?>`). Handle nulls appropriately to avoid CS8603 (Possible null reference return) warnings.
+4. **Asynchronous Programming**: Use `async`/`await` for all I/O, database, and network operations. Append `Async` to method names (e.g., `GetUserByIdAsync`).
+5. **Separation of Concerns**: Controllers only handle HTTP requests and responses. Services handle business rules. Repositories handle Entity Framework Core data access. 
+6. **Database Schema Mapping**: Map Entity models and DbContext DbSets precisely to the tables, columns, constraints, and relationships specified in the target database SQL schema (if provided).
+7. **No Context in Repositories File**: Do not declare the `AppDbContext` inside the `repository_code` string. It must only reside in `context_code`.
+8. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
 """
-
