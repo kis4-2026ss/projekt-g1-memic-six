@@ -144,8 +144,8 @@ namespace GeneratedProject.Data
             json.dump(migration_result.get("analysis", {}), f, indent=2)
 
         gen = migration_result.get("generation", {})
-        if not isinstance(gen, dict):
-            print("No valid generation dictionary found.")
+        if not gen or not isinstance(gen, dict) or "error" in gen:
+            print(f"No valid generation dictionary found or error occurred: {gen.get('error', 'Unknown generation error') if isinstance(gen, dict) else 'Invalid type'}")
             return
 
         for key, code in gen.items():

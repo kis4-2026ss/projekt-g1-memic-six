@@ -47,3 +47,58 @@ STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 7. **No Context in Repositories File**: Do not declare the `AppDbContext` inside the `repository_code` string. It must only reside in `context_code`.
 8. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
 """
+
+    VALIDATION_GENERATION_PROMPT = """
+You are an expert QA Engineer. Your task is to generate HTTP test cases for an API based on legacy PHP code and its extracted business logic analysis.
+These test cases will be executed against both the original PHP API and the new C# ASP.NET Core migration to verify functional equivalence.
+
+PHP Source Code:
+```php
+{php_code}
+```
+
+Extracted Business Logic:
+{business_logic_json}
+
+Generate a suite of 3-5 distinct test cases covering various inputs, including valid, invalid, and edge-case inputs.
+Return ONLY a valid JSON array of test cases. Each test case MUST have the following structure:
+[
+  {{
+    "name": "Description of the test case",
+    "method": "GET or POST",
+    "path": "/api_endpoint.php", 
+    "query_params": {{"key": "value"}},
+    "headers": {{"Content-Type": "application/json"}},
+    "body": {{"key": "value"}} 
+  }}
+]
+
+Important:
+- Set 'path' to the relative endpoint route based on the PHP file provided (e.g., if the file is 'api_get_products.php', the path should be '/api_get_products.php'). The C# runner will map this to the equivalent API route internally if needed.
+- If it's a GET request, provide 'query_params'. If POST, provide 'body' (and use application/x-www-form-urlencoded or application/json appropriately).
+- Return ONLY the JSON array.
+"""
+
+    VALIDATION_COMPARISON_PROMPT = """
+You are an expert software validator. Your task is to compare two HTTP responses: one from a legacy PHP application and one from a newly migrated C# API.
+The legacy application often returns HTML or unstructured data, while the C# API returns structured JSON.
+Determine if the two outputs represent functionally equivalent data and business logic results.
+
+Legacy PHP Output:
+```
+{php_output}
+```
+
+New C# Output:
+```
+{csharp_output}
+```
+
+Evaluate if they contain the same core data. If the PHP output is a table of products, does the C# JSON array contain the same products? 
+Return ONLY a valid JSON object with the following structure:
+{{
+  "match": true/false,
+  "reason": "Explanation of why they match or do not match.",
+  "confidence": 0.0 to 1.0
+}}
+"""

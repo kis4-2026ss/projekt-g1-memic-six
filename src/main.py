@@ -2,14 +2,20 @@ import argparse
 import json
 import os
 import datetime
+import subprocess
+import time
 from src.engine.migration_engine import MigrationEngine
 from src.generator.csharp_generator import CSharpProjectGenerator
+from src.validation.test_generator import TestGenerator
+from src.validation.test_runner import TestRunner
+from src.validation.comparator import Comparator
 
 def main():
     parser = argparse.ArgumentParser(description="WebLegacy AI - PHP to C# Migration Tool")
     parser.add_argument("--php-files", type=str, nargs='+', help="Paths to one or more legacy PHP files or directories to migrate")
     parser.add_argument("--schema-sql", type=str, default=None, help="Path to database SQL schema file")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save generated C# code")
+    parser.add_argument("--validate", action="store_true", help="Run validation tests against the generated C# project and the original PHP code")
     
     args = parser.parse_args()
 
@@ -84,7 +90,81 @@ def main():
     generator = CSharpProjectGenerator(output_dir=run_output_dir)
     generator.write_generated_code(result)
 
+    gen = result.get("generation", {})
+    if not gen or "error" in gen:
+        print("C# code generation failed. Aborting pipeline.")
+        return
+
     print(f"Migration complete. Results saved in {run_output_dir}")
+
+    if args.validate:
+        print("\n--- Starting Validation Pipeline ---")
+        import shutil
+        
+        if not shutil.which("php"):
+            print("Error: 'php' executable not found in PATH. Cannot start PHP development server for validation.")
+            return
+            
+        if not shutil.which("dotnet"):
+            print("Error: 'dotnet' executable not found in PATH. Cannot start C# API for validation.")
+            return
+
+        php_dir = os.path.dirname(os.path.abspath(args.php_files[0])) if args.php_files else '.'
+        
+        print("Starting PHP Development Server...")
+        php_process = subprocess.Popen(["php", "-S", "localhost:8000", "-t", php_dir])
+        
+        print("Building and Starting C# ASP.NET Core API...")
+        csproj_path = os.path.join(run_output_dir, "GeneratedProject.csproj")
+        csharp_process = subprocess.Popen(["dotnet", "run", "--project", csproj_path, "--urls", "http://localhost:5000"])
+        
+        print("Waiting for servers to start...")
+        time.sleep(10) # Give it 10 seconds to build and start
+        
+        try:
+            print("Generating test cases via Gemini...")
+            tg = TestGenerator()
+            combined_php = "\n".join(php_codes.values())
+            test_cases = tg.generate_test_cases(combined_php, result.get("analysis", {}))
+            
+            if not test_cases:
+                print("Failed to generate test cases. Aborting validation.")
+            else:
+                print(f"Generated {len(test_cases)} test cases. Running them now...")
+                tr = TestRunner("http://localhost:8000", "http://localhost:5000")
+                test_results = tr.run_tests(test_cases)
+                
+                print("Comparing outputs...")
+                comp = Comparator()
+                final_report = []
+                for res in test_results:
+                    php_res = res["php_result"]
+                    cs_res = res["csharp_result"]
+                    
+                    print(f"Evaluating {res['test_case'].get('name')}...")
+                    comp_result = comp.compare_outputs(php_res["body"], cs_res["body"], php_res["status"], cs_res["status"])
+                    
+                    final_report.append({
+                        "test_case": res["test_case"].get("name", "Unnamed"),
+                        "method": res["test_case"].get("method", "GET"),
+                        "path": res["test_case"].get("path", "/"),
+                        "match": comp_result.get("match", False),
+                        "reason": comp_result.get("reason", ""),
+                        "confidence": comp_result.get("confidence", 0.0),
+                        "php_status": php_res["status"],
+                        "csharp_status": cs_res["status"]
+                    })
+                    
+                report_path = os.path.join(run_output_dir, "validation_report.json")
+                with open(report_path, "w", encoding="utf-8") as f:
+                    json.dump(final_report, f, indent=2)
+                    
+                print(f"\nValidation complete! Report saved to {report_path}")
+                
+        finally:
+            print("Shutting down background servers...")
+            php_process.terminate()
+            csharp_process.terminate()
 
 if __name__ == "__main__":
     main()
