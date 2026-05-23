@@ -15,7 +15,7 @@ def main():
     parser.add_argument("--php-files", type=str, nargs='+', help="Paths to one or more legacy PHP files or directories to migrate")
     parser.add_argument("--schema-sql", type=str, default=None, help="Path to database SQL schema file")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save generated C# code")
-    parser.add_argument("--validate", action="store_true", help="Run validation tests against the generated C# project and the original PHP code")
+    parser.add_argument("--skip-validation", action="store_true", help="Skip running validation tests against the generated C# project and the original PHP code")
     
     args = parser.parse_args()
 
@@ -97,7 +97,7 @@ def main():
 
     print(f"Migration complete. Results saved in {run_output_dir}")
 
-    if args.validate:
+    if not args.skip_validation:
         print("\n--- Starting Validation Pipeline ---")
         import shutil
         
@@ -119,7 +119,27 @@ def main():
         csharp_process = subprocess.Popen(["dotnet", "run", "--project", csproj_path, "--urls", "http://localhost:5000"])
         
         print("Waiting for servers to start...")
-        time.sleep(10) # Give it 10 seconds to build and start
+        def wait_for_server(url, timeout=30):
+            import urllib.request
+            import urllib.error
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    urllib.request.urlopen(url, timeout=1)
+                    return True
+                except urllib.error.HTTPError:
+                    return True  # HTTPError (e.g. 404) means the server is online and responding
+                except Exception:
+                    time.sleep(1)
+            return False
+
+        php_up = wait_for_server("http://localhost:8000", timeout=15)
+        csharp_up = wait_for_server("http://localhost:5000", timeout=30)
+        
+        if not php_up or not csharp_up:
+            print(f"Warning: One or more servers failed to start (PHP: {php_up}, C#: {csharp_up}). Validation may fail.")
+        else:
+            print("Both servers successfully online!")
         
         try:
             print("Generating test cases via Gemini...")
@@ -163,8 +183,19 @@ def main():
                 
         finally:
             print("Shutting down background servers...")
-            php_process.terminate()
-            csharp_process.terminate()
+            if os.name == 'nt':
+                # Forcefully terminate the process trees on Windows to prevent orphaned background processes
+                try:
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(php_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    php_process.terminate()
+                try:
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(csharp_process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    csharp_process.terminate()
+            else:
+                php_process.terminate()
+                csharp_process.terminate()
 
 if __name__ == "__main__":
     main()

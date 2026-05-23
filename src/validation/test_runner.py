@@ -31,10 +31,36 @@ class TestRunner:
             php_url = urljoin(self.php_base_url, php_path)
             csharp_url = urljoin(self.csharp_base_url, csharp_path)
             
+            import urllib.parse
+            import json
             method = test.get('method', 'GET').upper()
-            params = test.get('query_params', {})
-            headers = test.get('headers', {})
-            body = test.get('body', None)
+            
+            # Parse query params string or fallback to dict
+            qp_str = test.get('query_params_string', '')
+            if not qp_str and 'query_params' in test:
+                params = test.get('query_params', {})
+            else:
+                params = dict(urllib.parse.parse_qsl(qp_str)) if qp_str else {}
+                
+            # Parse headers JSON or fallback to dict
+            h_str = test.get('headers_json', '{}')
+            if not h_str and 'headers' in test:
+                headers = test.get('headers', {})
+            else:
+                try:
+                    headers = json.loads(h_str) if h_str else {}
+                except Exception:
+                    headers = {}
+                    
+            # Parse body JSON or fallback to dict
+            b_str = test.get('body_json', '{}')
+            if not b_str and 'body' in test:
+                body = test.get('body', None)
+            else:
+                try:
+                    body = json.loads(b_str) if b_str else None
+                except Exception:
+                    body = None
             
             # 1. Request PHP
             php_response_text = ""

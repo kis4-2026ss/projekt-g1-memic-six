@@ -1,6 +1,10 @@
 import json
 from src.utils.gemini_client import GeminiClient
-from src.engine.prompts import MigrationPrompts
+from src.engine.prompts import (
+    MigrationPrompts,
+    PHPAnalysisResult,
+    CSharpMigrationResult
+)
 
 class MigrationEngine:
     def __init__(self):
@@ -39,7 +43,7 @@ class MigrationEngine:
             combined_code += f"// --- File: {filename} ---\n{code}\n\n"
             
         prompt = MigrationPrompts.PHP_ANALYSIS_PROMPT.format(php_code=combined_code)
-        response_text = self.gemini_client.generate_content(prompt)
+        response_text = self.gemini_client.generate_content(prompt, response_schema=PHPAnalysisResult)
         
         try:
             return self._extract_json(response_text)
@@ -61,7 +65,7 @@ class MigrationEngine:
             database_schema_context=database_schema_context,
             business_logic_json=business_logic_str
         )
-        response_text = self.gemini_client.generate_content(prompt)
+        response_text = self.gemini_client.generate_content(prompt, response_schema=CSharpMigrationResult)
         
         try:
             return self._extract_json(response_text)

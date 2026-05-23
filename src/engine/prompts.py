@@ -102,3 +102,53 @@ Return ONLY a valid JSON object with the following structure:
   "confidence": 0.0 to 1.0
 }}
 """
+
+# Pydantic Schemas for Gemini Structured Outputs
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any
+
+class PHPAnalysisInputOutput(BaseModel):
+    name: str = Field(description="Name of the input or output.")
+    type: str = Field(description="Type of the input or output.")
+    description: str = Field(description="Description of the input or output.")
+
+class PHPAnalysisBusinessRule(BaseModel):
+    rule: str = Field(description="The specific business rule or check applied.")
+    description: str = Field(description="Description of the business rule.")
+
+class PHPAnalysisDbInteraction(BaseModel):
+    type: str = Field(description="Type of interaction (e.g. SELECT, INSERT, UPDATE).")
+    table: str = Field(description="Target table name.")
+    query: str = Field(description="The raw or parameterized SQL query.")
+    description: str = Field(description="Description of what this query accomplishes.")
+
+class PHPAnalysisResult(BaseModel):
+    description: str = Field(description="A high-level description of what the combined code does.")
+    inputs: List[PHPAnalysisInputOutput] = Field(description="A list of inputs the code takes.")
+    outputs: List[PHPAnalysisInputOutput] = Field(description="A list of outputs the code produces.")
+    business_rules: List[PHPAnalysisBusinessRule] = Field(description="A list of specific business rules or logic steps.")
+    database_interactions: List[PHPAnalysisDbInteraction] = Field(description="A summary of SQL queries.")
+
+class CSharpMigrationResult(BaseModel):
+    models_code: str = Field(description="All required Domain Entities and Data Transfer Objects (DTOs). Use data annotations. Place in the GeneratedProject.Models namespace.")
+    context_code: str = Field(description="The AppDbContext class inheriting from DbContext. Place in the GeneratedProject.Data namespace.")
+    repository_code: str = Field(description="The Repository interfaces and concrete implementations. Place in GeneratedProject.Repositories.")
+    service_code: str = Field(description="The Service interfaces and implementations. Place in GeneratedProject.Services.")
+    controller_code: str = Field(description="ASP.NET Core API Controllers. Place in GeneratedProject.Controllers.")
+
+class ValidationTestCase(BaseModel):
+    name: str = Field(description="Description of the test case.")
+    method: str = Field(description="HTTP Method (GET or POST).")
+    path: str = Field(description="Relative endpoint route (e.g. /api_get_products.php).")
+    query_params_string: str = Field(default="", description="Query string format (e.g. id=1&format=json). Use empty string if none.")
+    headers_json: str = Field(default="{}", description="JSON string of headers, e.g. {\"Content-Type\": \"application/json\"}.")
+    body_json: str = Field(default="{}", description="JSON string of HTTP request body payload. Use '{}' if none.")
+
+class ValidationTestSuite(BaseModel):
+    test_cases: List[ValidationTestCase] = Field(description="The generated HTTP test cases.")
+
+class ValidationComparisonResult(BaseModel):
+    match: bool = Field(description="true if outputs are functionally equivalent, false otherwise.")
+    reason: str = Field(description="Explanation of why they match or do not match.")
+    confidence: float = Field(description="Confidence score from 0.0 to 1.0.")
+
