@@ -30,6 +30,13 @@ class CSharpProjectGenerator:
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="tests\\**" />
+    <Content Remove="tests\\**" />
+    <EmbeddedResource Remove="tests\\**" />
+    <None Remove="tests\\**" />
+  </ItemGroup>
+
 </Project>"""
         with open(os.path.join(self.output_dir, "GeneratedProject.csproj"), "w") as f:
             f.write(csproj_content)
@@ -174,6 +181,10 @@ namespace GeneratedProject.Data
 
             out_path = os.path.join(self.output_dir, folder, filename) if folder else os.path.join(self.output_dir, filename)
             
+            # Post-process code to clean up any illegal trailing semicolons after property accessors (e.g. { get; set; };)
+            import re
+            cleaned_code = re.sub(r'(get\s*;\s*set\s*;?\s*})\s*;', r'\1', code)
+            
             with open(out_path, 'w') as f:
-                f.write(code)
+                f.write(cleaned_code)
             print(f"Saved generated C# file: {os.path.join(folder, filename)}")

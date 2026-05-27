@@ -189,12 +189,19 @@ def main():
         try:
             print("Generating test cases via Gemini...")
             tg = TestGenerator()
-            combined_php = "\n".join(php_codes.values())
+            combined_php = ""
+            for filename, code in php_codes.items():
+                combined_php += f"// --- File: {os.path.basename(filename)} ---\n{code}\n\n"
             test_cases = tg.generate_test_cases(combined_php, result.get("analysis", {}))
             
             if not test_cases:
                 print("Failed to generate test cases. Aborting validation.")
             else:
+                print("Generating native C# and PHP test files...")
+                from src.generator.test_code_generator import TestCodeGenerator
+                tcg = TestCodeGenerator(run_output_dir)
+                tcg.generate_native_test_files(test_cases)
+                
                 print(f"Generated {len(test_cases)} test cases. Running them now...")
                 tr = TestRunner("http://localhost:8000", "http://localhost:5000")
                 test_results = tr.run_tests(test_cases)

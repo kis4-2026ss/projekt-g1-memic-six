@@ -39,6 +39,7 @@ Please generate the equivalent C# code. Return ONLY a valid JSON object containi
 
 STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`).
+   - Use modern C# 10+ file-scoped namespaces at the top of every file (e.g., `namespace GeneratedProject.Models;` with a semicolon, and NO enclosing curly braces {{ }} around the rest of the file contents). Do NOT use block namespaces with curly braces around classes.
 2. **EF Core Transactions**: If you use transactions (e.g., `BeginTransactionAsync()`), you MUST include `using Microsoft.EntityFrameworkCore.Storage;` to avoid CS0246 errors on `IDbContextTransaction`.
 3. **Nullable Reference Types**: C# 8 Nullable reference types are ENABLED. If a method like `FirstOrDefaultAsync` or `FindAsync` can return null, the return type MUST be nullable (e.g., `Task<User?>`). Handle nulls appropriately to avoid CS8603 (Possible null reference return) warnings.
 4. **Asynchronous Programming**: Use `async`/`await` for all I/O, database, and network operations. Append `Async` to method names (e.g., `GetUserByIdAsync`).
@@ -46,6 +47,9 @@ STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 6. **Database Schema Mapping**: Map Entity models and DbContext DbSets precisely to the tables, columns, constraints, and relationships specified in the target database SQL schema (if provided).
 7. **No Context in Repositories File**: Do not declare the `AppDbContext` inside the `repository_code` string. It must only reside in `context_code`.
 8. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
+   - Every opened class, interface, method, and namespace block MUST be properly closed with a corresponding closing brace (`}}`). Never leave a class or method unclosed!
+   - Properties in DTOs and models MUST NOT end with a trailing semicolon after the accessor block (e.g. use `public int Id {{ get; set; }}` and NEVER `public int Id {{ get; set; }};` with a semicolon after the closing brace).
+9. **Multiline & HTML Strings**: When generating multiline HTML templates or dashboards, strictly use C# raw string literals starting with double dollar sign ($$) followed by three double quotes, and ending with three double quotes (or verbatim `$@"..."`). Never output invalid syntax like `$"@...`. Ensure all double-quotes and braces are syntactically correct to avoid compilation errors.
 """
 
     VALIDATION_GENERATION_PROMPT = """
@@ -67,6 +71,7 @@ Return ONLY a valid JSON array of test cases. Each test case MUST have the follo
     "name": "Description of the test case",
     "method": "GET or POST",
     "path": "/api_endpoint.php", 
+    "csharp_path": "/api/controller_route",
     "query_params": {{"key": "value"}},
     "headers": {{"Content-Type": "application/json"}},
     "body": {{"key": "value"}} 
@@ -74,7 +79,8 @@ Return ONLY a valid JSON array of test cases. Each test case MUST have the follo
 ]
 
 Important:
-- Set 'path' to the relative endpoint route based on the PHP file provided (e.g., if the file is 'api_get_products.php', the path should be '/api_get_products.php'). The C# runner will map this to the equivalent API route internally if needed.
+- Set 'path' to the relative endpoint route based on the PHP file provided (e.g., if the file is 'api_get_products.php', the path should be '/api_get_products.php').
+- Set 'csharp_path' to the corresponding migrated C# REST endpoint path (e.g. '/api/Products' or '/api/Inventory/adjust') matching the generated C# controllers.
 - If it's a GET request, provide 'query_params'. If POST, provide 'body' (and use application/x-www-form-urlencoded or application/json appropriately).
 - Return ONLY the JSON array.
 """
@@ -140,6 +146,7 @@ class ValidationTestCase(BaseModel):
     name: str = Field(description="Description of the test case.")
     method: str = Field(description="HTTP Method (GET or POST).")
     path: str = Field(description="Relative endpoint route (e.g. /api_get_products.php).")
+    csharp_path: str = Field(default="", description="The corresponding migrated C# REST endpoint path (e.g. /api/Products or /api/Inventory/adjust) matching the generated C# controllers.")
     query_params_string: str = Field(default="", description="Query string format (e.g. id=1&format=json). Use empty string if none.")
     headers_json: str = Field(default="{}", description="JSON string of headers, e.g. {\"Content-Type\": \"application/json\"}.")
     body_json: str = Field(default="{}", description="JSON string of HTTP request body payload. Use '{}' if none.")

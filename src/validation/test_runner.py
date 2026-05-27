@@ -7,12 +7,14 @@ class TestRunner:
         self.php_base_url = php_base_url
         self.csharp_base_url = csharp_base_url
         
-    def _map_php_path_to_csharp(self, php_path: str) -> str:
-        # e.g., /api_get_products.php -> /api/products
-        # Simple heuristic mapping for now, can be improved
+    def _map_php_path_to_csharp(self, php_path: str, test_case: dict = None) -> str:
+        # If the test case has a dynamically generated csharp_path from Gemini, use it directly!
+        if test_case and test_case.get('csharp_path'):
+            return test_case.get('csharp_path')
+
+        # Fallback to the original heuristic mapping
         base_name = php_path.strip('/').replace('.php', '')
         if base_name.startswith('api_'):
-            # e.g., api_get_products -> /api/products
             parts = base_name.split('_')
             if len(parts) > 2 and parts[1] in ['get', 'post', 'put', 'delete']:
                 return f"/api/{parts[2]}"
@@ -26,7 +28,7 @@ class TestRunner:
             print(f"Running Test [{index+1}/{len(test_cases)}]: {test.get('name', 'Unnamed Test')}")
             
             php_path = test.get('path', '/')
-            csharp_path = self._map_php_path_to_csharp(php_path)
+            csharp_path = self._map_php_path_to_csharp(php_path, test)
             
             php_url = urljoin(self.php_base_url, php_path)
             csharp_url = urljoin(self.csharp_base_url, csharp_path)
