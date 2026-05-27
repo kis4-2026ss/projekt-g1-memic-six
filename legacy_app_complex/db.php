@@ -2,7 +2,7 @@
 // Legacy Database Connection
 $db_host = 'localhost';
 $db_user = 'root';
-$db_pass = 'password123';
+$db_pass = '';
 $db_name = 'shop_legacy';
 
 $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name);

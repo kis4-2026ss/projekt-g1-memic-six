@@ -10,10 +10,10 @@ if (!is_logged_in()) {
 $user_id = $_SESSION['user_id'];
 $status_filter = isset($_GET['status']) ? clean_input($_GET['status']) : 'all';
 
-// Complex query with JOIN
 $query = "SELECT o.id as order_id, o.order_date, o.total_amount, o.status, p.name as product_name 
           FROM orders o 
-          LEFT JOIN products p ON o.product_id = p.id 
+          LEFT JOIN order_items oi ON o.id = oi.order_id
+          LEFT JOIN products p ON oi.product_id = p.id 
           WHERE o.user_id = $user_id";
 
 if ($status_filter != 'all') {

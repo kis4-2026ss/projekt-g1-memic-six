@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--schema-sql", type=str, default=None, help="Path to database SQL schema file")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save generated C# code")
     parser.add_argument("--skip-validation", action="store_true", help="Skip running validation tests against the generated C# project and the original PHP code")
+    parser.add_argument("--validate-only", type=str, default=None, help="Directory of a previous run to validate (skips migration/generation)")
     
     args = parser.parse_args()
 
@@ -76,47 +77,91 @@ def main():
         print("Error: No PHP files found in the provided paths.")
         return
 
-    engine = MigrationEngine()
-    result = engine.run_migration(php_codes, sql_schema=sql_schema)
-
-    if args.output_dir == "./output":
-
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
+    if args.validate_only:
+        analysis_path = os.path.join(args.validate_only, "analysis.json")
+        if not os.path.exists(analysis_path):
+            print(f"Error: analysis.json not found in {args.validate_only}")
+            return
+        with open(analysis_path, 'r', encoding='utf-8') as f:
+            analysis_result = json.load(f)
+        
+        run_output_dir = args.validate_only
+        result = {"analysis": analysis_result}
+        print(f"Using existing C# project structure in {run_output_dir} for validation...")
     else:
-        run_output_dir = args.output_dir
+        engine = MigrationEngine()
+        result = engine.run_migration(php_codes, sql_schema=sql_schema)
 
-    print(f"Generating C# project structure in {run_output_dir}...")
-    generator = CSharpProjectGenerator(output_dir=run_output_dir)
-    generator.write_generated_code(result)
+        if args.output_dir == "./output":
 
-    gen = result.get("generation", {})
-    if not gen or "error" in gen:
-        print("C# code generation failed. Aborting pipeline.")
-        return
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
+        else:
+            run_output_dir = args.output_dir
 
-    print(f"Migration complete. Results saved in {run_output_dir}")
+        print(f"Generating C# project structure in {run_output_dir}...")
+        generator = CSharpProjectGenerator(output_dir=run_output_dir)
+        generator.write_generated_code(result)
+
+        gen = result.get("generation", {})
+        if not gen or "error" in gen:
+            print("C# code generation failed. Aborting pipeline.")
+            return
+
+        print(f"Migration complete. Results saved in {run_output_dir}")
 
     if not args.skip_validation:
         print("\n--- Starting Validation Pipeline ---")
         import shutil
         
-        if not shutil.which("php"):
-            print("Error: 'php' executable not found in PATH. Cannot start PHP development server for validation.")
-            return
+        php_executable = shutil.which("php")
+        if not php_executable:
+            if os.name == 'nt':
+                common_paths = [
+                    r"C:\xampp\php\php.exe",
+                    r"C:\tools\php\php.exe",
+                    r"C:\Program Files\php\php.exe",
+                ]
+                for path in common_paths:
+                    if os.path.exists(path):
+                        php_executable = path
+                        break
             
-        if not shutil.which("dotnet"):
-            print("Error: 'dotnet' executable not found in PATH. Cannot start C# API for validation.")
-            return
+            if not php_executable:
+                print("Error: 'php' executable not found in PATH. Cannot start PHP development server for validation.")
+                return
+            
+        dotnet_executable = shutil.which("dotnet")
+        if not dotnet_executable:
+            if os.name == 'nt':
+                common_paths = [
+                    r"C:\Program Files\dotnet\dotnet.exe",
+                    r"C:\Program Files (x86)\dotnet\dotnet.exe",
+                ]
+                for path in common_paths:
+                    if os.path.exists(path):
+                        dotnet_executable = path
+                        break
+            
+            if not dotnet_executable:
+                print("Error: 'dotnet' executable not found in PATH. Cannot start C# API for validation.")
+                return
 
-        php_dir = os.path.dirname(os.path.abspath(args.php_files[0])) if args.php_files else '.'
+        if args.php_files:
+            first_path = args.php_files[0]
+            if os.path.isdir(first_path):
+                php_dir = os.path.abspath(first_path)
+            else:
+                php_dir = os.path.dirname(os.path.abspath(first_path))
+        else:
+            php_dir = '.'
         
         print("Starting PHP Development Server...")
-        php_process = subprocess.Popen(["php", "-S", "localhost:8000", "-t", php_dir])
+        php_process = subprocess.Popen([php_executable, "-S", "localhost:8000", "-t", php_dir])
         
         print("Building and Starting C# ASP.NET Core API...")
         csproj_path = os.path.join(run_output_dir, "GeneratedProject.csproj")
-        csharp_process = subprocess.Popen(["dotnet", "run", "--project", csproj_path, "--urls", "http://localhost:5000"])
+        csharp_process = subprocess.Popen([dotnet_executable, "run", "--project", csproj_path, "--urls", "http://localhost:5000"])
         
         print("Waiting for servers to start...")
         def wait_for_server(url, timeout=30):

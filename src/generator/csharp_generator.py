@@ -53,7 +53,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 foreach (var type in assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
 {
-    if (type.Name.EndsWith("Service") || type.Name.EndsWith("Repository"))
+    if (type.Name.EndsWith("Service") || type.Name.EndsWith("Repository") || type.Name.EndsWith("UnitOfWork"))
     {
         var mainInterface = type.GetInterfaces().FirstOrDefault(i => i.Name == "I" + type.Name);
         if (mainInterface != null)
