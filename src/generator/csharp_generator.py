@@ -1,5 +1,35 @@
 import os
 import json
+import re
+
+def fix_using_clauses(code: str) -> str:
+    # Match using namespace directive: using System; using Microsoft.EntityFrameworkCore; etc.
+    # Exclude using (var ...) or using var ... = ...;
+    using_pattern = re.compile(r'^\s*using\s+(static\s+)?[A-Za-z0-9_\.]+(\s*=\s*[A-Za-z0-9_\.]+)?\s*;$')
+    
+    lines = code.splitlines()
+    usings = []
+    other_lines = []
+    
+    for line in lines:
+        if using_pattern.match(line):
+            usings.append(line)
+        else:
+            other_lines.append(line)
+            
+    if usings:
+        # Deduplicate while preserving order of first appearance
+        unique_usings = []
+        seen = set()
+        for u in usings:
+            normalized = " ".join(u.strip().split())
+            if normalized not in seen:
+                seen.add(normalized)
+                unique_usings.append(u.strip())
+        
+        # Combine unique usings at the top, then the rest
+        return "\n".join(unique_usings) + "\n\n" + "\n".join(other_lines)
+    return code
 
 class CSharpProjectGenerator:
     def __init__(self, output_dir="./output/GeneratedProject"):
@@ -26,7 +56,7 @@ class CSharpProjectGenerator:
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.4" />
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
@@ -38,7 +68,7 @@ class CSharpProjectGenerator:
   </ItemGroup>
 
 </Project>"""
-        with open(os.path.join(self.output_dir, "GeneratedProject.csproj"), "w") as f:
+        with open(os.path.join(self.output_dir, "GeneratedProject.csproj"), "w", encoding="utf-8") as f:
             f.write(csproj_content)
 
         # 2. Write Program.cs
@@ -48,24 +78,39 @@ using GeneratedProject.Data;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the DI container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure EF Core with SQLite
+// Configure EF Core with MySQL
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+});
 
 // Auto-register all generated Services and Repositories
 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
 foreach (var type in assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
 {
-    if (type.Name.EndsWith("Service") || type.Name.EndsWith("Repository") || type.Name.EndsWith("UnitOfWork"))
+    var ns = type.Namespace ?? "";
+    if (ns.Contains("Services") || ns.Contains("Repositories") || type.Name.EndsWith("Service") || type.Name.EndsWith("Repository") || type.Name.EndsWith("UnitOfWork") || type.Name.EndsWith("Calculator"))
     {
         var mainInterface = type.GetInterfaces().FirstOrDefault(i => i.Name == "I" + type.Name);
         if (mainInterface != null)
         {
-            builder.Services.AddScoped(mainInterface, type);
+            if (type.IsGenericTypeDefinition)
+            {
+                builder.Services.AddScoped(mainInterface.GetGenericTypeDefinition(), type);
+            }
+            else
+            {
+                builder.Services.AddScoped(mainInterface, type);
+            }
         }
         else
         {
@@ -105,7 +150,7 @@ using (var scope = app.Services.CreateScope())
 
 app.Run();
 """
-        with open(os.path.join(self.output_dir, "Program.cs"), "w") as f:
+        with open(os.path.join(self.output_dir, "Program.cs"), "w", encoding="utf-8") as f:
             f.write(program_cs_content)
 
         # 3. Write appsettings.json
@@ -118,10 +163,10 @@ app.Run();
   },
   "AllowedHosts": "*",
   "ConnectionStrings": {
-    "DefaultConnection": "Data Source=app.db"
+    "DefaultConnection": "Server=localhost;Port=3306;Database=crm_enterprise_csharp_test;Uid=root;Pwd=;"
   }
 }"""
-        with open(os.path.join(self.output_dir, "appsettings.json"), "w") as f:
+        with open(os.path.join(self.output_dir, "appsettings.json"), "w", encoding="utf-8") as f:
             f.write(appsettings_content)
             
         # 4. Write empty AppDbContext if one isn't generated (failsafe)
@@ -139,7 +184,7 @@ namespace GeneratedProject.Data
         data_dir = os.path.join(self.output_dir, "Data")
         os.makedirs(data_dir, exist_ok=True)
         if not os.path.exists(os.path.join(data_dir, "AppDbContext.cs")):
-            with open(os.path.join(data_dir, "AppDbContext.cs"), "w") as f:
+            with open(os.path.join(data_dir, "AppDbContext.cs"), "w", encoding="utf-8") as f:
                 f.write(app_db_context_content)
 
     def write_generated_code(self, migration_result: dict):
@@ -147,7 +192,7 @@ namespace GeneratedProject.Data
         self.write_boilerplate()
 
         # Save the analysis result in the root of the generated project for reference
-        with open(os.path.join(self.output_dir, 'analysis.json'), 'w') as f:
+        with open(os.path.join(self.output_dir, 'analysis.json'), 'w', encoding="utf-8") as f:
             json.dump(migration_result.get("analysis", {}), f, indent=2)
 
         gen = migration_result.get("generation", {})
@@ -182,9 +227,21 @@ namespace GeneratedProject.Data
             out_path = os.path.join(self.output_dir, folder, filename) if folder else os.path.join(self.output_dir, filename)
             
             # Post-process code to clean up any illegal trailing semicolons after property accessors (e.g. { get; set; };)
-            import re
             cleaned_code = re.sub(r'(get\s*;\s*set\s*;?\s*})\s*;', r'\1', code)
             
-            with open(out_path, 'w') as f:
+            # Post-process: Make GenericRepository._context public so services can access it for transactions
+            cleaned_code = re.sub(r'protected\s+readonly\s+AppDbContext\s+_context', r'public readonly AppDbContext _context', cleaned_code)
+            cleaned_code = re.sub(r'protected\s+AppDbContext\s+_context', r'public AppDbContext _context', cleaned_code)
+            
+            # Post-process: Replace invalid Forbid(object) with StatusCode(403, object)
+            cleaned_code = re.sub(r'return\s+Forbid\s*\(', r'return StatusCode(StatusCodes.Status403Forbidden, ', cleaned_code)
+            
+            # Post-process: Replace invalid List<string> initialized with StringComparer to HashSet<string>
+            cleaned_code = re.sub(r'List<string>(\s+[A-Z0-9_a-z]+)\s*=\s*new(?:\s+List<string>)?\s*\(\s*StringComparer\.OrdinalIgnoreCase\s*\)', r'HashSet<string>\1 = new HashSet<string>(StringComparer.OrdinalIgnoreCase)', cleaned_code)
+            
+            # Post-process code to sort all using clauses to the very top to prevent CS1529 namespace errors
+            cleaned_code = fix_using_clauses(cleaned_code)
+            
+            with open(out_path, 'w', encoding="utf-8") as f:
                 f.write(cleaned_code)
             print(f"Saved generated C# file: {os.path.join(folder, filename)}")

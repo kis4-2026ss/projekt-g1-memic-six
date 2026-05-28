@@ -39,7 +39,7 @@ Return your code inside a single ```csharp ... ``` markdown block.
 Do NOT use JSON. Do NOT wrap your response in JSON.
 
 STRICT GUIDELINES FOR QUALITY AND COMPILATION:
-1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`, `using GeneratedProject.Models;`, `using GeneratedProject.Data;`, `using GeneratedProject.Repositories;`, `using GeneratedProject.Services;`).
+1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Data;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`, `using GeneratedProject.Models;`, `using GeneratedProject.Data;`, `using GeneratedProject.Repositories;`, `using GeneratedProject.Services;`).
 2. **File-Scoped Namespaces**: Use modern C# 10+ file-scoped namespaces at the top of every file (e.g., `namespace GeneratedProject.Models;` with a semicolon, and NO enclosing curly braces {{ }} around the rest of the file contents). Do NOT use block namespaces with curly braces around classes.
 3. **EF Core Transactions**: If you use transactions, you MUST include `using Microsoft.EntityFrameworkCore.Storage;`.
 4. **Nullable Reference Types**: C# 8 Nullable reference types are ENABLED. 
@@ -53,6 +53,9 @@ STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 9. **No Abstract Instantiation**: Do NOT attempt to instantiate abstract classes or interfaces (e.g. `new BaseRepository<T>()`). You must provide and instantiate concrete implementations, or rely on dependency injection.
 10. **Consistent Interfaces**: If you use patterns like `IUnitOfWork`, ensure that all properties (e.g., `Projects`, `UserTasks`) accessed in the services are strictly defined in the interface. Alternatively, prefer injecting specific Repositories directly into the Services rather than using a Unit of Work.
 11. **Completeness**: You MUST generate code for ALL entities and tables present in the provided database schema (including `departments`, `contracts`, `timesheets`, `products`, `audit_logs`, etc.). Do NOT truncate or skip any tables, models, or DB sets.
+12. **MySQL Compatibility**: The system uses MySQL (Pomelo.EntityFrameworkCore.MySql). You are allowed to use MySQL-specific raw SQL (like `SELECT ... FOR UPDATE` for row locks) if necessary, but prefer standard EF Core LINQ methods where possible.
+13. **Safety & Nulls**: Always handle potential `null` references safely. When calculating KPIs or analytics, always check for division-by-zero (e.g. `Total > 0 ? (Value / Total) : 0`).
+14. **Tuples**: If returning C# Tuples from methods, strictly use the exact property names defined in the tuple declaration to avoid compilation errors.
 """
 
     VALIDATION_GENERATION_PROMPT = """
@@ -83,7 +86,7 @@ Return ONLY a valid JSON array of test cases. Each test case MUST have the follo
 
 Important:
 - Set 'path' to the relative endpoint route based on the PHP file provided (e.g., if the file is 'api_get_products.php', the path should be '/api_get_products.php').
-- Set 'csharp_path' to the corresponding migrated C# REST endpoint path (e.g. '/api/Products' or '/api/Inventory/adjust') matching the generated C# controllers.
+- Set 'csharp_path' to the corresponding migrated C# REST endpoint path matching the generated C# controllers. Guess the exact route based on standard ASP.NET Core API conventions for these controllers. For this project, typical generated routes often include: '/api/Products/bulk-upsert', '/api/Invoices', '/api/Analytics/contracts', '/api/Analytics/crm-kpis', '/api/Projects/tree', '/api/Timesheets', '/api/Dashboard'. Ensure you use the exact casing and hyphens as a typical modern REST API would.
 - If it's a GET request, provide 'query_params'. If POST, provide 'body' (and use application/x-www-form-urlencoded or application/json appropriately).
 - Return ONLY the JSON array.
 """

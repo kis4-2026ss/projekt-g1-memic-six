@@ -14,7 +14,7 @@ class GeminiClient:
             # Initialize the new Google GenAI client
             self.client = genai.Client(api_key=api_key)
         
-        self.model_id = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-pro")
+        self.model_id = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash")
 
     def generate_content(self, prompt: str, response_schema=None) -> str:
         """
