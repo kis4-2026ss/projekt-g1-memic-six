@@ -58,7 +58,7 @@ class TestCodeGenerator:
         methods_code = []
         for index, test in enumerate(test_cases):
             name = test.get('name', f'Test_{index+1}')
-            safe_name = self._safe_method_name(name)
+            safe_name = f"{self._safe_method_name(name)}_{index+1}"
             method = test.get('method', 'GET').upper()
             php_path = test.get('path', '/')
             csharp_path = self._map_php_path_to_csharp(php_path, test)
@@ -106,8 +106,8 @@ class TestCodeGenerator:
 
             body_setup = "            // No request body"
             if body and method in ['POST', 'PUT', 'PATCH']:
-                escaped_body = json.dumps(body).replace('"', '\\"')
-                body_setup = f'            var jsonPayload = "{escaped_body}";\n'
+                body_json_str = json.dumps(body, indent=2)
+                body_setup = f'            var jsonPayload = """\n{body_json_str}\n""";\n'
                 body_setup += f'            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");'
 
             method_template = f"""        [Fact]
@@ -172,13 +172,39 @@ namespace GeneratedProject.Tests
             f.write(csharp_template)
         print(f"Generated native C# test file: {csharp_test_file_path}")
 
+        csproj_template = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\..\\GeneratedProject.csproj" />
+  </ItemGroup>
+</Project>"""
+        csproj_path = os.path.join(self.csharp_tests_dir, "GeneratedTests.csproj")
+        with open(csproj_path, "w", encoding="utf-8") as f:
+            f.write(csproj_template)
+        print(f"Generated native C# test project: {csproj_path}")
+
     def _generate_php_tests(self, test_cases):
         php_test_file_path = os.path.join(self.php_tests_dir, "PhpIntegrationTests.php")
 
         methods_code = []
         for index, test in enumerate(test_cases):
             name = test.get('name', f'Test_{index+1}')
-            safe_name = self._safe_method_name(name)
+            safe_name = f"{self._safe_method_name(name)}_{index+1}"
             method = test.get('method', 'GET').upper()
             php_path = test.get('path', '/')
 

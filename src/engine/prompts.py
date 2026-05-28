@@ -48,7 +48,7 @@ STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 7. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
    - Every opened class, interface, method, and namespace block MUST be properly closed with a corresponding closing brace (`}}`).
    - Properties in DTOs and models MUST NOT end with a trailing semicolon after the accessor block (e.g. use `public int Id {{ get; set; }}`).
-   - Only use standard HTTP status codes available in `Microsoft.AspNetCore.Http.StatusCodes` (e.g. DO NOT use `Status444NoResponse`).
+   - Only use standard HTTP status codes available in `Microsoft.AspNetCore.Http.StatusCodes`. Be very careful with typos: The correct code is `Status422UnprocessableEntity`, NOT `Status442UnprocessableEntity`. Do NOT use fake codes like `Status444NoResponse`.
 8. **No Sub-Namespaces**: Do NOT invent or use `.Interfaces` sub-namespaces (e.g. do not write `using GeneratedProject.Repositories.Interfaces;`). Place interfaces in the same namespace as their implementations (e.g. `GeneratedProject.Repositories` or `GeneratedProject.Services`).
 9. **No Abstract Instantiation**: Do NOT attempt to instantiate abstract classes or interfaces (e.g. `new BaseRepository<T>()`). You must provide and instantiate concrete implementations, or rely on dependency injection.
 10. **Consistent Interfaces**: If you use patterns like `IUnitOfWork`, ensure that all properties (e.g., `Projects`, `UserTasks`) accessed in the services are strictly defined in the interface. Alternatively, prefer injecting specific Repositories directly into the Services rather than using a Unit of Work.
@@ -56,6 +56,7 @@ STRICT GUIDELINES FOR QUALITY AND COMPILATION:
 12. **MySQL Compatibility**: The system uses MySQL (Pomelo.EntityFrameworkCore.MySql). You are allowed to use MySQL-specific raw SQL (like `SELECT ... FOR UPDATE` for row locks) if necessary, but prefer standard EF Core LINQ methods where possible.
 13. **Safety & Nulls**: Always handle potential `null` references safely. When calculating KPIs or analytics, always check for division-by-zero (e.g. `Total > 0 ? (Value / Total) : 0`).
 14. **Tuples**: If returning C# Tuples from methods, strictly use the exact property names defined in the tuple declaration to avoid compilation errors.
+15. **LINQ Grouping**: When using LINQ `GroupBy`, remember that the result is an `IGrouping<TKey, TElement>`. Do NOT attempt to access properties of `TElement` directly on the grouping object (e.g., `group.Company` is invalid). You must use `group.Key.PropertyName` if the property is part of the key, or aggregate the elements (e.g., `group.First().Company` or `group.Sum(x => x.Value)`).
 """
 
     VALIDATION_GENERATION_PROMPT = """

@@ -60,6 +60,27 @@ class MigrationEngine:
             return match.group(1).strip()
         return text.strip()
 
+    def _extract_interfaces(self, code: str) -> str:
+        lines = code.split('\n')
+        in_interface = False
+        interface_lines = []
+        brace_depth = 0
+        
+        for line in lines:
+            if "public interface " in line or "internal interface " in line:
+                in_interface = True
+                brace_depth = 0
+            
+            if in_interface:
+                interface_lines.append(line)
+                brace_depth += line.count("{")
+                brace_depth -= line.count("}")
+                if brace_depth <= 0 and "}" in line:
+                    in_interface = False
+                    interface_lines.append("")
+                    
+        return "\n".join(interface_lines)
+
     def generate_csharp_code(self, business_logic: dict, sql_schema: str = None) -> dict:
         """
         Step 2 & 3: Map to C# and generate code in stages.
@@ -96,9 +117,15 @@ class MigrationEngine:
             code = self._extract_csharp_from_markdown(response_text)
             result[key] = code
             
-            # Append full generated code to context for next steps. Modern Gemini models have large input context windows.
-            previous_code += f"// --- {name} Code ---\n"
-            previous_code += code + "\n\n"
+            # Append generated code to context for next steps.
+            if name in ["Models", "DbContext"]:
+                previous_code += f"// --- {name} Code ---\n"
+                previous_code += code + "\n\n"
+            elif name in ["Repositories", "Services"]:
+                interfaces = self._extract_interfaces(code)
+                if interfaces.strip():
+                    previous_code += f"// --- {name} Interfaces ---\n"
+                    previous_code += interfaces + "\n\n"
             
         return result
 
