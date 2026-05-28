@@ -20,36 +20,39 @@ PHP Code:
 ```
 """
 
-    CSHARP_GENERATION_PROMPT = """
+    CSHARP_COMPONENT_PROMPT = """
 You are an expert C# ASP.NET Core 8 developer and software architect.
 Your task is to migrate the extracted business intent from legacy PHP code into a highly robust, modern, and production-ready ASP.NET Core Web API architecture.
-The target architecture strictly adheres to the Controller-Service-Repository Pattern, Dependency Injection, and Entity Framework Core 8.
 
 {database_schema_context}
 
 Here is the extracted business logic:
 {business_logic_json}
 
-Please generate the equivalent C# code. Return ONLY a valid JSON object containing the following keys (if applicable):
-- "models_code": All required Domain Entities and Data Transfer Objects (DTOs). Use data annotations (e.g., [Required], [Key]). Place in the `GeneratedProject.Models` namespace.
-- "context_code": The `AppDbContext` class inheriting from `DbContext`, containing `DbSet<T>` for all entities. Place in the `GeneratedProject.Data` namespace. Include `using GeneratedProject.Models;`.
-- "repository_code": The Repository interfaces (e.g., `IUserRepository`) and their concrete implementations. Inject `AppDbContext` via constructor. Place in `GeneratedProject.Repositories`. Include `using GeneratedProject.Data;` and `using GeneratedProject.Models;`.
-- "service_code": The Service interfaces and implementations containing the core business logic. Inject repositories here. Do not access the `AppDbContext` directly from services. Place in `GeneratedProject.Services`. Include `using GeneratedProject.Repositories;` and `using GeneratedProject.Models;`.
-- "controller_code": ASP.NET Core API Controllers inheriting from `ControllerBase`. Use `[ApiController]` and route attributes. Return `ActionResult<T>`. Inject services. Place in `GeneratedProject.Controllers`. Include `using GeneratedProject.Services;` and `using GeneratedProject.Models;`.
+You are generating ONLY the following component: **{component_name}**
+Description of this component: {component_description}
+
+{previous_code_context}
+
+Please generate the equivalent C# code for this specific component ONLY. 
+Return your code inside a single ```csharp ... ``` markdown block.
+Do NOT use JSON. Do NOT wrap your response in JSON.
 
 STRICT GUIDELINES FOR QUALITY AND COMPILATION:
-1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`).
-   - Use modern C# 10+ file-scoped namespaces at the top of every file (e.g., `namespace GeneratedProject.Models;` with a semicolon, and NO enclosing curly braces {{ }} around the rest of the file contents). Do NOT use block namespaces with curly braces around classes.
-2. **EF Core Transactions**: If you use transactions (e.g., `BeginTransactionAsync()`), you MUST include `using Microsoft.EntityFrameworkCore.Storage;` to avoid CS0246 errors on `IDbContextTransaction`.
-3. **Nullable Reference Types**: C# 8 Nullable reference types are ENABLED. If a method like `FirstOrDefaultAsync` or `FindAsync` can return null, the return type MUST be nullable (e.g., `Task<User?>`). Handle nulls appropriately to avoid CS8603 (Possible null reference return) warnings.
-4. **Asynchronous Programming**: Use `async`/`await` for all I/O, database, and network operations. Append `Async` to method names (e.g., `GetUserByIdAsync`).
-5. **Separation of Concerns**: Controllers only handle HTTP requests and responses. Services handle business rules. Repositories handle Entity Framework Core data access. 
-6. **Database Schema Mapping**: Map Entity models and DbContext DbSets precisely to the tables, columns, constraints, and relationships specified in the target database SQL schema (if provided).
-7. **No Context in Repositories File**: Do not declare the `AppDbContext` inside the `repository_code` string. It must only reside in `context_code`.
-8. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
-   - Every opened class, interface, method, and namespace block MUST be properly closed with a corresponding closing brace (`}}`). Never leave a class or method unclosed!
-   - Properties in DTOs and models MUST NOT end with a trailing semicolon after the accessor block (e.g. use `public int Id {{ get; set; }}` and NEVER `public int Id {{ get; set; }};` with a semicolon after the closing brace).
-9. **Multiline & HTML Strings**: When generating multiline HTML templates or dashboards, strictly use C# raw string literals starting with double dollar sign ($$) followed by three double quotes, and ending with three double quotes (or verbatim `$@"..."`). Never output invalid syntax like `$"@...`. Ensure all double-quotes and braces are syntactically correct to avoid compilation errors.
+1. **Namespaces & Usings**: Include ALL necessary `using` directives at the top of every file (e.g., `using System;`, `using System.Collections.Generic;`, `using System.Linq;`, `using System.Threading.Tasks;`, `using Microsoft.AspNetCore.Mvc;`, `using Microsoft.EntityFrameworkCore;`, `using GeneratedProject.Models;`, `using GeneratedProject.Data;`, `using GeneratedProject.Repositories;`, `using GeneratedProject.Services;`).
+2. **File-Scoped Namespaces**: Use modern C# 10+ file-scoped namespaces at the top of every file (e.g., `namespace GeneratedProject.Models;` with a semicolon, and NO enclosing curly braces {{ }} around the rest of the file contents). Do NOT use block namespaces with curly braces around classes.
+3. **EF Core Transactions**: If you use transactions, you MUST include `using Microsoft.EntityFrameworkCore.Storage;`.
+4. **Nullable Reference Types**: C# 8 Nullable reference types are ENABLED. 
+5. **Asynchronous Programming**: Use `async`/`await` for all I/O, database, and network operations. Append `Async` to method names.
+6. **Avoid Naming Conflicts with System.Threading.Tasks.Task**: If the legacy code or database schema has a table, entity, or model named `tasks` or `task`, you MUST name the C# model class `UserTask` (or `TodoTask`) instead of `Task`. Use `UserTask` across all generated files (DbContext, Repositories, Services, Controllers) to completely avoid naming collisions with C#'s built-in `System.Threading.Tasks.Task`. Never define a C# model class named `Task`.
+7. **Syntactic Validity**: Ensure all generated C# code is syntactically valid and compiles cleanly.
+   - Every opened class, interface, method, and namespace block MUST be properly closed with a corresponding closing brace (`}}`).
+   - Properties in DTOs and models MUST NOT end with a trailing semicolon after the accessor block (e.g. use `public int Id {{ get; set; }}`).
+   - Only use standard HTTP status codes available in `Microsoft.AspNetCore.Http.StatusCodes` (e.g. DO NOT use `Status444NoResponse`).
+8. **No Sub-Namespaces**: Do NOT invent or use `.Interfaces` sub-namespaces (e.g. do not write `using GeneratedProject.Repositories.Interfaces;`). Place interfaces in the same namespace as their implementations (e.g. `GeneratedProject.Repositories` or `GeneratedProject.Services`).
+9. **No Abstract Instantiation**: Do NOT attempt to instantiate abstract classes or interfaces (e.g. `new BaseRepository<T>()`). You must provide and instantiate concrete implementations, or rely on dependency injection.
+10. **Consistent Interfaces**: If you use patterns like `IUnitOfWork`, ensure that all properties (e.g., `Projects`, `UserTasks`) accessed in the services are strictly defined in the interface. Alternatively, prefer injecting specific Repositories directly into the Services rather than using a Unit of Work.
+11. **Completeness**: You MUST generate code for ALL entities and tables present in the provided database schema (including `departments`, `contracts`, `timesheets`, `products`, `audit_logs`, etc.). Do NOT truncate or skip any tables, models, or DB sets.
 """
 
     VALIDATION_GENERATION_PROMPT = """
@@ -135,12 +138,6 @@ class PHPAnalysisResult(BaseModel):
     business_rules: List[PHPAnalysisBusinessRule] = Field(description="A list of specific business rules or logic steps.")
     database_interactions: List[PHPAnalysisDbInteraction] = Field(description="A summary of SQL queries.")
 
-class CSharpMigrationResult(BaseModel):
-    models_code: str = Field(description="All required Domain Entities and Data Transfer Objects (DTOs). Use data annotations. Place in the GeneratedProject.Models namespace.")
-    context_code: str = Field(description="The AppDbContext class inheriting from DbContext. Place in the GeneratedProject.Data namespace.")
-    repository_code: str = Field(description="The Repository interfaces and concrete implementations. Place in GeneratedProject.Repositories.")
-    service_code: str = Field(description="The Service interfaces and implementations. Place in GeneratedProject.Services.")
-    controller_code: str = Field(description="ASP.NET Core API Controllers. Place in GeneratedProject.Controllers.")
 
 class ValidationTestCase(BaseModel):
     name: str = Field(description="Description of the test case.")

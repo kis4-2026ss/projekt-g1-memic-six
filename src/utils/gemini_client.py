@@ -2,7 +2,7 @@ import os
 from google import genai
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 class GeminiClient:
     def __init__(self):
@@ -14,8 +14,7 @@ class GeminiClient:
             # Initialize the new Google GenAI client
             self.client = genai.Client(api_key=api_key)
         
-        # Using the exact model ID from the list_models output
-        self.model_id = 'gemini-flash-latest'
+        self.model_id = os.getenv("GEMINI_MODEL_ID", "gemini-2.5-pro")
 
     def generate_content(self, prompt: str, response_schema=None) -> str:
         """
@@ -49,7 +48,7 @@ class GeminiClient:
                 return response.text
             except Exception as e:
                 error_msg = str(e)
-                is_rate_limit = "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower()
+                is_rate_limit = "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "quota" in error_msg.lower() or "503" in error_msg or "500" in error_msg or "11001" in error_msg or "getaddrinfo" in error_msg
                 
                 if is_rate_limit and attempt < max_retries:
                     print(f"Rate limit exceeded (429). Retrying in {delay} seconds (Attempt {attempt+1}/{max_retries})...")
